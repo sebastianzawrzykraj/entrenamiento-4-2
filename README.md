@@ -1,17 +1,20 @@
-# Entrenamiento 4+2
+# Entrenamiento 4+2 · versión 4.2
 
-Aplicación web gratuita para registrar la rutina, cargas, repeticiones, RIR y peso corporal.
+Programa semanal consolidado: 4 días de fuerza, 2 días de spinning y 1 día de descanso. Incluye descanso por ejercicio y temporizador, estimaciones de calorías, registro por serie, progresión según RIR y semana 8 de descarga.
 
-## Publicación en GitHub Pages
+**Distribución de series por día (sin contar los bloques de spinning):** lunes 19, martes 18, miércoles 12 (incluye 2 opcionales de banda), jueves 18, viernes 9 y sábado 26: **102 series**, de las cuales 2 son opcionales de banda. No todas son series de hipertrofia: parte corresponde a core, postura y trabajo complementario de rodilla.
 
-1. Subir **todos los archivos de esta carpeta a la raíz** del repositorio `entrenamiento-4-2` (no subir la carpeta contenedora).
-2. En GitHub: **Settings → Pages → Build and deployment → Deploy from a branch**.
-3. Elegir **main** y **/(root)**, y guardar.
-4. Esperar el despliegue y abrir https://sebastianzawrzykraj.github.io/entrenamiento-4-2/
-5. En Safari del iPhone: **Compartir → Agregar a pantalla de inicio**.
+## Rodilla
+- Lunes: extensión de rodilla alternada con sostén, 2 series de 10–15 por pierna, carga liviana, descanso 75 s. Se ubica después de peso muerto rumano para hacerla visible.
+- Miércoles: extensión terminal de rodilla con banda, **opcional**, 2 series de 10–15 por pierna, descanso 75 s.
+- Adaptar el rango y carga a tolerancia y diagnóstico; no asumir que toda lesión admite extensión terminal sostenida. Si aparece dolor relevante, inflamación, bloqueo o sensación de falla, suspender y consultar.
 
-## Datos
+## Publicación
+Reemplazá los seis archivos del repositorio en `main`, conservando sus nombres. GitHub Pages desplegará la nueva versión. Exportá primero el respaldo JSON desde la app. Esta actualización conserva las claves de almacenamiento anteriores; los identificadores numéricos de ejercicios no cambian. La nueva versión del service worker fuerza la renovación del caché.
 
-Los datos se guardan en el almacenamiento local del navegador, por dispositivo. Exportar copias JSON periódicas desde la aplicación. No hay sincronización entre dispositivos. Borrar datos del sitio puede eliminar registros.
+URL: https://sebastianzawrzykraj.github.io/entrenamiento-4-2/
 
-Las cargas son referencias iniciales que deben ajustarse al rendimiento, la técnica y las molestias.
+Las calorías son estimaciones y no mediciones de potencia.
+
+## Versión 4.3
+Temporizador flotante visible durante el desplazamiento, con pausa, reanudación, +30 s y cierre.
