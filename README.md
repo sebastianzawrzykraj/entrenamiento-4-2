@@ -35,8 +35,6 @@ icon-192.png         # Ícono para instalación
 icon-512.png         # Ícono para instalación
 ```
 
-El **código y los identificadores nuevos están en inglés**, mientras que la interfaz y esta documentación están en español. La aplicación nació como un prototipo de un solo archivo; esta versión separa HTML, CSS y JS sin cambiar el formato de datos existente. La modularización interna, las pruebas automatizadas y un pipeline de CI son mejoras pendientes. No se pretende presentar el prototipo como una arquitectura empresarial.
-
 ## Datos y privacidad
 
 Los registros se guardan **en el navegador y dispositivo**, no en GitHub ni en un servidor. No hay cuentas ni sincronización de Google Fit/Health. Eliminar los datos del sitio puede eliminar el historial; conviene exportar copias JSON antes de actualizar o cambiar de dispositivo. El archivo JSON puede contener información personal de entrenamiento: **no subirlo al repositorio público**.
