@@ -191,15 +191,28 @@ $('dailySaveStrength').addEventListener('click',()=>{
  const result=strengthEstimate();if(!result){alert('Completá por lo menos una serie de fuerza (carga, repeticiones y RIR, cuando corresponda) antes de guardar.');return}
  const key=dailyDate(),entries=daily.days[key]||[];const entry={kind:'strength',label:'Fuerza · '+D[state.day]+' · semana '+state.week,minutes:result.minutes,net:result.net,gross:result.gross};const i=entries.findIndex(x=>x.kind==='strength');if(i>=0)entries[i]=entry;else entries.push(entry);daily.days[key]=entries;dailySave();dailyRender();
 });
-$('dailyAddFromCalc').addEventListener('click',()=>{
- const weight=Number(calState.weight);if(!(weight>=30&&weight<=300)){alert('Revisá el peso en la calculadora manual.');return}
- const items=calState.segments.filter(x=>Number(x.duration)>0).map(x=>{const minutes=Number(x.duration),met=calMet(x);return {kind:'manual',label:({flex:'FlexiSpot',spin:'Spinning',strength:'Fuerza manual',walk:'Caminata'}[x.activity]||x.activity),minutes,net:(met-1)*3.5*weight/200*minutes,gross:met*3.5*weight/200*minutes}});
- if(!items.length){alert('No hay tramos válidos.');return}
- if(items.some(x=>x.label==='Fuerza manual')&&dayEntries().some(x=>x.kind==='strength')&&!confirm('Ya guardaste fuerza automática hoy. ¿Confirmás que este tramo manual es otra sesión diferente?'))return;
- if(!confirm('¿Agregar '+items.length+' tramo(s) a '+dailyDate()+'? Si ya estaban guardados, se duplicarán.'))return;
- daily.days[dailyDate()]??=[];daily.days[dailyDate()].push(...items);dailySave();dailyRender();
-});
-$('saveCalculatedActivities').addEventListener('click',()=>{$('dailyAddFromCalc').click();$('calSaveStatus').textContent='Revisá el resumen diario de la fecha '+dailyDate()+' para confirmar las actividades guardadas.'});
+function saveCalculatorToDay(){
+ const weight=Number(calState.weight);
+ if(!(weight>=30&&weight<=300)){alert('Revisá el peso corporal de la calculadora.');return false}
+ const items=calState.segments.filter(segment=>Number(segment.duration)>0).map(segment=>{
+  const minutes=Number(segment.duration),met=calMet(segment);
+  return {kind:'manual',source:'calculator',label:({flex:'FlexiSpot',spin:'Spinning',strength:'Fuerza manual',walk:'Caminata'}[segment.activity]||segment.activity),minutes,
+   net:(met-1)*3.5*weight/200*minutes,gross:met*3.5*weight/200*minutes}
+ });
+ if(!items.length){alert('Agregá por lo menos una actividad con duración válida.');return false}
+ const date=dailyDate(),existing=daily.days[date]||[];
+ if(items.some(item=>item.label==='Fuerza manual')&&existing.some(item=>item.kind==='strength')){
+  if(!confirm('Ya hay una sesión de fuerza registrada. ¿La fuerza manual corresponde a otra sesión distinta?'))return false
+ }
+ // Calculator entries are one editable group per day; repeated saves replace this group.
+ const preserved=existing.filter(item=>item.source!=='calculator');
+ daily.days[date]=[...preserved,...items];
+ dailySave();dailyRender();
+ $('calSaveStatus').textContent='Guardadas '+items.length+' actividad(es) para '+date+'. Extra total del día: '+$('dailyExtra').textContent+'.';
+ return true
+}
+$('dailyAddFromCalc').addEventListener('click',()=>{if(saveCalculatorToDay())$('dailyCalories').scrollIntoView({behavior:'smooth',block:'start'})});
+$('saveCalculatedActivities').addEventListener('click',()=>{if(saveCalculatorToDay())$('dailyCalories').scrollIntoView({behavior:'smooth',block:'start'})});
 $('dailyEntries').addEventListener('click',e=>{const b=e.target.closest('[data-del-daily]');if(!b)return;daily.days[dailyDate()].splice(Number(b.dataset.delDaily),1);dailySave();dailyRender()});
 // Export/import copies include the calendar, while retaining previous app format for compatibility.
 $('export').onclick=()=>download(JSON.stringify({app:'entrenamiento-42',version:2,exported:new Date().toISOString(),state,daily,calState,strengthPrefs},null,2),'entrenamiento-42-respaldo.json','application/json');
