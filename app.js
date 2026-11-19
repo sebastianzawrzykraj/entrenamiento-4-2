@@ -197,7 +197,7 @@ function automaticEntriesForDate(date){
    if(exercise.type==='cardio'){
     const minutes=sets.reduce((total,set)=>total+Number(set.reps),0);
     const met=calMet({activity:'spin',effort:log.intensity||'moderado'});
-    entries.push({kind:'automatic',source:'workout',label:exercise.name+' · semana '+week,minutes,
+    entries.push({kind:'automatic',source:'workout',label:exercise.name+' · '+D[day].split(' · ')[0]+' · semana '+week,minutes,
      gross:met*3.5*kg/200*minutes,net:(met-1)*3.5*kg/200*minutes});
     continue;
    }
@@ -222,7 +222,7 @@ function automaticEntriesForDate(date){
    minutes+=restMinutes;
    gross+=1.2*3.5*kg/200*restMinutes;
    net+=0.2*3.5*kg/200*restMinutes;
-   entries.push({kind:'automatic',source:'workout',label:exercise.name+' · semana '+week,
+   entries.push({kind:'automatic',source:'workout',label:exercise.name+' · '+D[day].split(' · ')[0]+' · semana '+week,
     minutes,gross,net});
   }
  }
@@ -272,6 +272,8 @@ function dayEntries(){return daily.days[dailyDate()]||[]}
 function validProfile(){const p=daily.profile;return p.weight>=30&&p.weight<=300&&p.age>=18&&p.age<=100&&p.height>=120&&p.height<=230}
 function dailyRender(){
  const p=daily.profile,entries=entriesForDate(dailyDate());
+ const matchingSessions=Object.entries(state.sessionDates||{}).filter(([key,date])=>date===dailyDate()&&state.completedSessions?.[key]);
+ $('dailyDateExplanation').textContent='Resumen de '+new Date(dailyDate()+'T12:00:00').toLocaleDateString('es-UY')+'. Incluye todas las actividades confirmadas de esta fecha, no sólo la semana o el día de entrenamiento seleccionados.'+(matchingSessions.length>1?' Atención: hay '+matchingSessions.length+' sesiones de rutina confirmadas en esta fecha. Revisá sus fechas para evitar sumar entrenamientos de prueba.':'');
  if(!validProfile()){$('dailyExplanation').textContent='Revisá peso, edad y estatura.';return}
  const bmr=10*p.weight+6.25*p.height-5*p.age+(p.sex==='male'?5:-161);
  const net=entries.reduce((sum,x)=>sum+(Number(x.net)||0),0),gross=entries.reduce((sum,x)=>sum+(Number(x.gross)||0),0);
@@ -303,6 +305,19 @@ for(const k of ['weight','age','height','sex','factor']){
 }
 syncBodyWeight();
 $('dailyDate').addEventListener('change',dailyRender);
+function synchronizeSummaryDateWithSession(){
+ const selectedDate=$('sessionDate').value;
+ if(selectedDate&&$('dailyDate').value!==selectedDate){
+  $('dailyDate').value=selectedDate;
+ }
+ dailyRender();
+}
+$('day').addEventListener('change',synchronizeSummaryDateWithSession);
+$('weeks').addEventListener('click',event=>{
+ if(event.target.closest('button[data-w]'))synchronizeSummaryDateWithSession();
+});
+$('sessionDate').addEventListener('change',synchronizeSummaryDateWithSession);
+
 $('dailyAddFromCalc').addEventListener('click',()=>{if(saveCalculatorToDay())$('dailyCalories').scrollIntoView({behavior:'smooth',block:'start'})});
 $('saveCalculatedActivities').addEventListener('click',()=>{if(saveCalculatorToDay())$('dailyCalories').scrollIntoView({behavior:'smooth',block:'start'})});
 $('dailyEntries').addEventListener('click',e=>{const b=e.target.closest('[data-del-daily]');if(!b)return;daily.days[dailyDate()].splice(Number(b.dataset.delDaily),1);dailySave();dailyRender()});
