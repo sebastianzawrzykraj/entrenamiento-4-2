@@ -12,7 +12,8 @@ const E=[
 [0,'Extensión de rodilla alternada con sostén',2,10,15,null,1,'unidad de máquina','rehab'],
 [2,'Extensión terminal de rodilla con banda (opcional)',2,10,15,null,0,'banda','rehab']
 ].map((r,id)=>({id,day:r[0],name:r[1],sets:r[2],lo:r[3],hi:r[4],base:r[5],step:r[6],unit:r[7],type:r[8]}));
-const KEY='entrenamiento-42-v1';let state={week:1,day:1,settings:{},logs:{},mass:{},initial:87.5,rate:.4};try{const saved=localStorage.getItem(KEY);if(saved)state={...state,...JSON.parse(saved)}}catch(e){};
+const KEY='entrenamiento-42-v1';let state={week:1,day:1,settings:{},logs:{},mass:{},initial:87.5,rate:.4,sessionDates:{}};try{const saved=localStorage.getItem(KEY);if(saved)state={...state,...JSON.parse(saved)}}catch(e){};
+state.sessionDates ||= {};
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const parseDecimal=value=>{if(value===null||value===undefined||String(value).trim()==='')return null;const normalized=String(value).trim().replace(/\s/g,'').replace(',', '.');if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized))return null;const result=Number(normalized);return Number.isFinite(result)?result:null};const num=parseDecimal;const fmt=n=>n===null||!Number.isFinite(n)?'Sin definir':Number(n.toFixed(2)).toLocaleString('es-UY');
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state));$('storageStatus').textContent='Guardado localmente.'}catch(e){$('storageStatus').textContent='No se pudo guardar en este navegador. Exportá una copia JSON.'}}
@@ -64,13 +65,15 @@ function renderActivityCard(exercise, plan, log) {
  const intensity=isCardio?`<label>Intensidad percibida<select data-intensity="${exercise.id}"><option value="suave" ${cardioIntensity==='suave'?'selected':''}>Suave</option><option value="moderado" ${cardioIntensity==='moderado'?'selected':''}>Moderada</option><option value="intenso" ${cardioIntensity==='intenso'?'selected':''}>Intensa</option></select></label>`:'';
  const resistance=isCardio?'':`<label>Resistencia o banda (opcional)<input type="text" data-resistance="${exercise.id}" placeholder="Ej.: banda roja, 5 kg" value="${esc(log.resistance||'')}"></label>`;
  const safety=exercise.type==='rehab'?'<p class="muted">Movimientos controlados, sin forzar ni buscar el fallo. Ajustá la amplitud si hay dolor; evitá continuar ante hinchazón, bloqueo o inestabilidad.</p>':'';
- const minutesHelp=isCardio?'<p class="muted">Ingresá los minutos reales. No hay carga, repeticiones ni RIR para spinning. Para sumarlo a las calorías diarias, registrá también la actividad en el resumen diario.</p>':'<p class="muted">Registrá cada lado por separado pero anotá las repeticiones o segundos de un solo lado, no la suma de ambos. RIR no requerido.</p>';
+ const minutesHelp=isCardio?'<p class="muted">Ingresá los minutos reales. No hay carga, repeticiones ni RIR para spinning. Se suma automáticamente al resumen diario de la fecha asociada a esta sesión.</p>':'<p class="muted">Registrá cada lado por separado pero anotá las repeticiones o segundos de un solo lado, no la suma de ambos. RIR no requerido.</p>';
  return `<section class="card activity-card"><div class="row"><strong>${esc(exercise.name)}</strong><span class="tag">${isCardio?'Cardio':exercise.type==='rehab'?'Rodilla':exercise.type==='core'?'Core':'Postura'}</span></div>${safety}${minutesHelp}<div class="activity-layout">${rows}</div>${intensity}${resistance}<label><input data-pain="${exercise.id}" type="checkbox" style="width:auto" ${log.pain?'checked':''}> Hubo dolor o molestias</label><label>Observaciones (opcional)<textarea data-note="${exercise.id}" rows="2" placeholder="Sensaciones, técnica, fatiga...">${esc(log.note||'')}</textarea></label><p class="muted">${(log.sets||[]).some(s=>num(s.reps)!==null)?'Datos guardados automáticamente.':'Completá los campos para guardar automáticamente.'}</p>${!isCardio&&plan.series.length>1?`<div class="rest-actions"><small class="muted">Descanso sugerido ${restFormat(restSeconds(exercise))}</small><button class="secondary rest-start" type="button" data-rest="${exercise.id}">Iniciar temporizador</button></div>`:''}</section>`;
 }
-function render(){const w=state.week,d=state.day;$('weeks').innerHTML=Array.from({length:8},(_,i)=>`<button data-w="${i+1}" class="${w===i+1?'active':''}">${i+1}</button>`).join('');$('day').value=String(d);$('phase').textContent=w<=2?'Adaptación':w<=4?'Acumulación':w<=7?'Progresión':'Descarga';$('dayInfo').textContent=d===6?'Día de descanso.':w===8?'Descarga: menos series y menor carga.':'RIR objetivo: '+(w<=2?'3':w<=4?'2':'2 compuestos / 1 aislados');$('exercises').innerHTML=E.filter(e=>e.day===d).sort((a,b)=>{const order=d===0?['Hip thrust','Prensa diagonal','Peso muerto rumano','Extensión de rodilla alternada con sostén','Curl femoral','Abducción cadera','Gemelos en prensa']:d===2?['Spinning intenso','Extensión terminal de rodilla con banda (opcional)']:[];const ai=order.indexOf(a.name),bi=order.indexOf(b.name);return (ai<0?100+a.id:ai)-(bi<0?100+b.id:bi)}).map(e=>{const p=planSets(e,w),log=getLog(w,e.id),c=config(e),nonLift=['core','posture','cardio','rehab'].includes(e.type);if(nonLift)return renderActivityCard(e,p,log);return `<section class="card"><div class="row"><strong>${esc(e.name)}</strong><span class="tag">${p.series.length} series</span></div><p><span class="tag">${p.style==='top'?'Top set + back-off':p.style==='same'?'Repeticiones constantes':'Carga constante · reps variables'}</span>${target(e,w)===null?'':`<span class="tag">RIR ${target(e,w)}</span>`}</p><p class="muted">${esc(p.why)}</p>${e.type==='rehab'?`<p class="muted"><strong>Trabajo complementario de rodilla: NO forzar ni buscar el fallo.</strong> ${e.name.startsWith('Extensión de rodilla')?'Alterná las piernas: una queda extendida mientras la otra ejecuta una repetición controlada, luego intercambiá. Contá las repeticiones por pierna. Usá carga liviana y no bloquees forzadamente la rodilla.':'Con banda detrás de la rodilla, extendé suavemente sin bloquear; mantené 1–2 s y regresá con control. Opcional según tolerancia.'} Evitá dolor creciente, inflamación o bloqueo; el rango debe ajustarse a tu lesión.</p>`:''}<p class="muted">Descanso entre series: <strong>${Math.floor(restSeconds(e)/60)}:${String(restSeconds(e)%60).padStart(2,'0')}</strong> min entre series efectivas.</p><div class="series"><small>Serie</small><small>Peso obj.</small><small>Reps obj.</small><small>RIR obj.</small></div>${p.series.map((t,i)=>`<div class="series"><small>${i+1} ${p.style==='top'?(i===0?'T':'B'):''}</small><strong>${t.load===null?'—':fmt(t.load)}</strong><strong>${t.reps}</strong><strong>${t.rir===null?'—':t.rir}</strong></div>`).join('')}<details><summary>Registrar cada serie y configurar</summary><div class="grid"><div><label>Carga inicial (${esc(e.unit)})</label><input data-setting="base" data-id="${e.id}" type="text" inputmode="decimal" pattern="[0-9.,]+" value="${c.base===null?'':c.base}"></div><div><label>Incremento mínimo (${esc(e.unit)})</label><input data-setting="step" data-id="${e.id}" type="text" inputmode="decimal" pattern="[0-9.,]+" value="${c.step}"></div><div><label>Descanso entre series (segundos)</label><input data-setting="rest" data-id="${e.id}" type="number" min="0" max="600" step="15" inputmode="numeric" value="${restSeconds(e)}"></div></div><p class="muted">${nonLift?'Para cardio y postura no se exige RIR.':'Anotá el peso, las repeticiones y el RIR real de cada serie. Las series de calentamiento no cuentan.'}</p><div class="series"><small>Serie</small><small>Carga real</small><small>${e.type==='cardio'?'Min':'Reps reales'}</small><small>RIR real</small></div>${p.series.map((t,i)=>{const v=(log.sets||[])[i]||{};return `<div class="series"><strong>${i+1}</strong><input aria-label="Carga serie ${i+1}" data-log="load" data-id="${e.id}" data-series="${i}" type="text" inputmode="decimal" pattern="[0-9.,]+" placeholder="${t.load===null?'—':fmt(t.load)}" value="${esc(v.load??'')}"><input aria-label="Reps serie ${i+1}" data-log="reps" data-id="${e.id}" data-series="${i}" type="number" inputmode="numeric" placeholder="${t.reps}" value="${esc(v.reps??'')}"><input aria-label="RIR serie ${i+1}" data-log="rir" data-id="${e.id}" data-series="${i}" type="number" min="0" max="10" inputmode="numeric" placeholder="${t.rir??'—'}" value="${esc(v.rir??'')}"></div>`}).join('')}<label><input data-pain="${e.id}" type="checkbox" style="width:auto" ${log.pain?'checked':''}> Hubo dolor o molestias</label><label>Observaciones</label><textarea data-note="${e.id}" rows="2" placeholder="Técnica, fatiga, sensaciones...">${esc(log.note||'')}</textarea></details><div class="rest-actions"><small class="muted">Descanso ${Math.floor(restSeconds(e)/60)}:${String(restSeconds(e)%60).padStart(2,'0')} min</small><button class="secondary rest-start" type="button" data-rest="${e.id}">Iniciar temporizador</button></div></section>`}).join('')||'<section class="card">Descanso y recuperación.</section>';$('initial').value=String(state.initial).replace('.',',');$('rate').value=state.rate;$('mass').value=state.mass[w]===undefined?'':String(state.mass[w]).replace('.',',');renderMass()}
+function render(){const w=state.week,d=state.day;const sessionKey=w+'_'+d;const selectedDate=state.sessionDates[sessionKey]||new Date().toLocaleDateString('en-CA');$('sessionDate').value=selectedDate;$('sessionDateInfo').textContent=state.sessionDates[sessionKey]?'Sesión vinculada a '+selectedDate+'. Sus ejercicios se incorporan al resumen automáticamente.':'Fecha sugerida: '+selectedDate+'. Se vinculará cuando edites un registro o elijas una fecha.';$('weeks').innerHTML=Array.from({length:8},(_,i)=>`<button data-w="${i+1}" class="${w===i+1?'active':''}">${i+1}</button>`).join('');$('day').value=String(d);$('phase').textContent=w<=2?'Adaptación':w<=4?'Acumulación':w<=7?'Progresión':'Descarga';$('dayInfo').textContent=d===6?'Día de descanso.':w===8?'Descarga: menos series y menor carga.':'RIR objetivo: '+(w<=2?'3':w<=4?'2':'2 compuestos / 1 aislados');$('exercises').innerHTML=E.filter(e=>e.day===d).sort((a,b)=>{const order=d===0?['Hip thrust','Prensa diagonal','Peso muerto rumano','Extensión de rodilla alternada con sostén','Curl femoral','Abducción cadera','Gemelos en prensa']:d===2?['Spinning intenso','Extensión terminal de rodilla con banda (opcional)']:[];const ai=order.indexOf(a.name),bi=order.indexOf(b.name);return (ai<0?100+a.id:ai)-(bi<0?100+b.id:bi)}).map(e=>{const p=planSets(e,w),log=getLog(w,e.id),c=config(e),nonLift=['core','posture','cardio','rehab'].includes(e.type);if(nonLift)return renderActivityCard(e,p,log);return `<section class="card"><div class="row"><strong>${esc(e.name)}</strong><span class="tag">${p.series.length} series</span></div><p><span class="tag">${p.style==='top'?'Top set + back-off':p.style==='same'?'Repeticiones constantes':'Carga constante · reps variables'}</span>${target(e,w)===null?'':`<span class="tag">RIR ${target(e,w)}</span>`}</p><p class="muted">${esc(p.why)}</p>${e.type==='rehab'?`<p class="muted"><strong>Trabajo complementario de rodilla: NO forzar ni buscar el fallo.</strong> ${e.name.startsWith('Extensión de rodilla')?'Alterná las piernas: una queda extendida mientras la otra ejecuta una repetición controlada, luego intercambiá. Contá las repeticiones por pierna. Usá carga liviana y no bloquees forzadamente la rodilla.':'Con banda detrás de la rodilla, extendé suavemente sin bloquear; mantené 1–2 s y regresá con control. Opcional según tolerancia.'} Evitá dolor creciente, inflamación o bloqueo; el rango debe ajustarse a tu lesión.</p>`:''}<p class="muted">Descanso entre series: <strong>${Math.floor(restSeconds(e)/60)}:${String(restSeconds(e)%60).padStart(2,'0')}</strong> min entre series efectivas.</p><div class="series"><small>Serie</small><small>Peso obj.</small><small>Reps obj.</small><small>RIR obj.</small></div>${p.series.map((t,i)=>`<div class="series"><small>${i+1} ${p.style==='top'?(i===0?'T':'B'):''}</small><strong>${t.load===null?'—':fmt(t.load)}</strong><strong>${t.reps}</strong><strong>${t.rir===null?'—':t.rir}</strong></div>`).join('')}<details><summary>Registrar cada serie y configurar</summary><div class="grid"><div><label>Carga inicial (${esc(e.unit)})</label><input data-setting="base" data-id="${e.id}" type="text" inputmode="decimal" pattern="[0-9.,]+" value="${c.base===null?'':c.base}"></div><div><label>Incremento mínimo (${esc(e.unit)})</label><input data-setting="step" data-id="${e.id}" type="text" inputmode="decimal" pattern="[0-9.,]+" value="${c.step}"></div><div><label>Descanso entre series (segundos)</label><input data-setting="rest" data-id="${e.id}" type="number" min="0" max="600" step="15" inputmode="numeric" value="${restSeconds(e)}"></div></div><p class="muted">${nonLift?'Para cardio y postura no se exige RIR.':'Anotá el peso, las repeticiones y el RIR real de cada serie. Las series de calentamiento no cuentan.'}</p><div class="series"><small>Serie</small><small>Carga real</small><small>${e.type==='cardio'?'Min':'Reps reales'}</small><small>RIR real</small></div>${p.series.map((t,i)=>{const v=(log.sets||[])[i]||{};return `<div class="series"><strong>${i+1}</strong><input aria-label="Carga serie ${i+1}" data-log="load" data-id="${e.id}" data-series="${i}" type="text" inputmode="decimal" pattern="[0-9.,]+" placeholder="${t.load===null?'—':fmt(t.load)}" value="${esc(v.load??'')}"><input aria-label="Reps serie ${i+1}" data-log="reps" data-id="${e.id}" data-series="${i}" type="number" inputmode="numeric" placeholder="${t.reps}" value="${esc(v.reps??'')}"><input aria-label="RIR serie ${i+1}" data-log="rir" data-id="${e.id}" data-series="${i}" type="number" min="0" max="10" inputmode="numeric" placeholder="${t.rir??'—'}" value="${esc(v.rir??'')}"></div>`}).join('')}<label><input data-pain="${e.id}" type="checkbox" style="width:auto" ${log.pain?'checked':''}> Hubo dolor o molestias</label><label>Observaciones</label><textarea data-note="${e.id}" rows="2" placeholder="Técnica, fatiga, sensaciones...">${esc(log.note||'')}</textarea></details><div class="rest-actions"><small class="muted">Descanso ${Math.floor(restSeconds(e)/60)}:${String(restSeconds(e)%60).padStart(2,'0')} min</small><button class="secondary rest-start" type="button" data-rest="${e.id}">Iniciar temporizador</button></div></section>`}).join('')||'<section class="card">Descanso y recuperación.</section>';$('initial').value=String(state.initial).replace('.',',');$('rate').value=state.rate;$('mass').value=state.mass[w]===undefined?'':String(state.mass[w]).replace('.',',');renderMass()}
 function parseLocalizedNumber(value){const text=String(value??'').trim().replace(/\s/g,'').replace(',','.');if(!/^\d+(?:\.\d+)?$/.test(text))return null;const number=Number(text);return Number.isFinite(number)?number:null}
 function renderMass(){const start=parseLocalizedNumber(state.initial)??87.5,rate=Number(state.rate),w=state.week;$('weightSummary').textContent=`Objetivo al finalizar la semana ${w}: ${fmt(start-rate*w)} kg. Objetivo al finalizar 8 semanas: ${fmt(start-rate*8)} kg.`;$('weightRows').innerHTML=Array.from({length:8},(_,i)=>`<tr><td>${i+1}</td><td>${fmt(start-rate*(i+1))} kg</td><td>${state.mass[i+1]?esc(state.mass[i+1])+' kg':'—'}</td></tr>`).join('')}
-$('day').innerHTML=D.map((d,i)=>`<option value="${i}">${esc(d)}</option>`).join('');$('weeks').addEventListener('click',e=>{if(e.target.dataset.w){state.week=Number(e.target.dataset.w);save();render()}});$('day').addEventListener('change',e=>{state.day=Number(e.target.value);save();render()});$('exercises').addEventListener('change',e=>{const t=e.target,id=t.dataset.id;if(t.dataset.setting){state.settings[id]??={};state.settings[id][t.dataset.setting]=t.dataset.setting==='rest'?t.value:(num(t.value)===null?'':String(num(t.value)));save();render();return}if(t.dataset.log){const key=state.week+'_'+id;state.logs[key]??={sets:[]};const s=state.logs[key].sets;const i=Number(t.dataset.series);s[i]??={};s[i][t.dataset.log]=(t.dataset.log==='load'&&num(t.value)!==null)?String(num(t.value)):t.value;save();return}if(t.dataset.pain){const key=state.week+'_'+t.dataset.pain;state.logs[key]??={sets:[]};state.logs[key].pain=t.checked;save();return}if(t.dataset.note){const key=state.week+'_'+t.dataset.note;state.logs[key]??={sets:[]};state.logs[key].note=t.value;save();return}if(t.dataset.intensity||t.dataset.resistance){const id=t.dataset.intensity||t.dataset.resistance;const key=state.week+'_'+id;state.logs[key]??={sets:[]};state.logs[key][t.dataset.intensity?'intensity':'resistance']=t.value;save();return}});$('exercises').addEventListener('input',e=>{if(e.target.dataset.log||e.target.dataset.note||e.target.dataset.resistance){e.target.dispatchEvent(new Event('change',{bubbles:true}))}});let restTimer=null,restEnd=0,restExercise=null,restRemaining=0,restPaused=false,restName='',restActiveSince=0,restElapsed=0;
+$('day').innerHTML=D.map((d,i)=>`<option value="${i}">${esc(d)}</option>`).join('');$('weeks').addEventListener('click',e=>{if(e.target.dataset.w){state.week=Number(e.target.dataset.w);save();render()}});$('day').addEventListener('change',e=>{state.day=Number(e.target.value);save();render()});$('sessionDate').addEventListener('change',e=>{if(!e.target.value)return;state.sessionDates[state.week+'_'+state.day]=e.target.value;save();dailyRender();render()});
+function linkSessionDate(){const key=state.week+'_'+state.day;if(!state.sessionDates[key]){state.sessionDates[key]=$('sessionDate').value||todayLocal()}}
+$('exercises').addEventListener('change',e=>{const t=e.target,id=t.dataset.id;if(t.dataset.setting){state.settings[id]??={};state.settings[id][t.dataset.setting]=t.dataset.setting==='rest'?t.value:(num(t.value)===null?'':String(num(t.value)));save();render();return}if(t.dataset.log){linkSessionDate();const key=state.week+'_'+id;state.logs[key]??={sets:[]};const s=state.logs[key].sets;const i=Number(t.dataset.series);s[i]??={};s[i][t.dataset.log]=(t.dataset.log==='load'&&num(t.value)!==null)?String(num(t.value)):t.value;save();dailyRender();return}if(t.dataset.pain){linkSessionDate();const key=state.week+'_'+t.dataset.pain;state.logs[key]??={sets:[]};state.logs[key].pain=t.checked;save();dailyRender();return}if(t.dataset.note){linkSessionDate();const key=state.week+'_'+t.dataset.note;state.logs[key]??={sets:[]};state.logs[key].note=t.value;save();return}if(t.dataset.intensity||t.dataset.resistance){linkSessionDate();const id=t.dataset.intensity||t.dataset.resistance;const key=state.week+'_'+id;state.logs[key]??={sets:[]};state.logs[key][t.dataset.intensity?'intensity':'resistance']=t.value;save();dailyRender();return}});$('exercises').addEventListener('input',e=>{if(e.target.dataset.log||e.target.dataset.note||e.target.dataset.resistance){e.target.dispatchEvent(new Event('change',{bubbles:true}))}});let restTimer=null,restEnd=0,restExercise=null,restRemaining=0,restPaused=false,restName='',restActiveSince=0,restElapsed=0;
 function restFormat(seconds){return Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')}
 function updateRestClock(){
  if(restExercise===null)return;
@@ -172,10 +175,73 @@ const todayLocal=()=>{const d=new Date(),z=n=>String(n).padStart(2,'0');return d
 $('dailyDate').value=todayLocal();
 function dailySave(){try{localStorage.setItem(DAILY_KEY,JSON.stringify(daily))}catch(e){alert('No se pudo guardar el diario. Exportá una copia JSON.')}}
 function dailyDate(){return $('dailyDate').value||todayLocal()}
+
+// Automatically derive exercise calories from dated workout logs.
+// Keep historical records without dates untouched until the user assigns a real date.
+function automaticEntriesForDate(date){
+ const kg=Number(daily.profile.weight);
+ if(!(kg>=30&&kg<=300))return [];
+ const entries=[];
+ for(const [sessionKey,sessionDate] of Object.entries(state.sessionDates||{})){
+  if(sessionDate!==date)continue;
+  const [week,day]=sessionKey.split('_').map(Number);
+  if(!Number.isInteger(week)||!Number.isInteger(day))continue;
+  for(const exercise of E.filter(item=>item.day===day)){
+   const log=getLog(week,exercise.id);
+   const sets=(log.sets||[]).filter(set=>num(set.reps)!==null&&Number(set.reps)>0);
+   if(!sets.length)continue;
+   if(exercise.type==='cardio'){
+    const minutes=sets.reduce((total,set)=>total+Number(set.reps),0);
+    const met=calMet({activity:'spin',effort:log.intensity||'moderado'});
+    entries.push({kind:'automatic',source:'workout',label:exercise.name+' · semana '+week,minutes,
+     gross:met*3.5*kg/200*minutes,net:(met-1)*3.5*kg/200*minutes});
+    continue;
+   }
+   const validSets=sets.filter(set=>['core','posture','rehab'].includes(exercise.type)||(num(set.load)!==null&&num(set.rir)!==null));
+   if(!validSets.length)continue;
+   let minutes=0,gross=0,net=0;
+   for(const set of validSets){
+    const count=Math.min(60,Number(set.reps));
+    const seconds=exercise.unit==='segundos'?count:count*3;
+    const workingMinutes=Math.min(3,Math.max(0.2,seconds/60));
+    let met=exercise.type==='compound'?4.6:exercise.type==='isolation'?3.7:exercise.type==='rehab'?2.5:2.8;
+    if(num(set.rir)!==null)met+=Math.max(-0.4,Math.min(0.4,(3-Number(set.rir))*0.12));
+    met=Math.max(2,Math.min(5.2,met));
+    minutes+=workingMinutes;
+    gross+=met*3.5*kg/200*workingMinutes;
+    net+=(met-1)*3.5*kg/200*workingMinutes;
+   }
+   const actual=(log.restActual||[]).slice(0,Math.max(0,validSets.length-1));
+   const measured=actual.reduce((sum,value)=>sum+Math.min(600,Math.max(0,Number(value)||0))/60,0);
+   const missing=Math.max(0,validSets.length-1-actual.length)*restSeconds(exercise)/60;
+   const restMinutes=measured+missing;
+   minutes+=restMinutes;
+   gross+=1.2*3.5*kg/200*restMinutes;
+   net+=0.2*3.5*kg/200*restMinutes;
+   entries.push({kind:'automatic',source:'workout',label:exercise.name+' · semana '+week,
+    minutes,gross,net});
+  }
+ }
+ return entries;
+}
+function entriesForDate(date){
+ const generated=automaticEntriesForDate(date);
+ const stored=daily.days[date]||[];
+ // An old saved strength summary would duplicate the newly derived individual exercises.
+ const hasStrength=generated.some(entry=>!entry.label.toLowerCase().includes('spinning'));
+ const hasSpinning=generated.some(entry=>entry.label.toLowerCase().includes('spinning'));
+ const manual=stored.filter(entry=>{
+  if(hasStrength&&entry.kind==='strength')return false;
+  if(hasSpinning&&entry.kind==='manual'&&entry.label==='Spinning')return false;
+  return true;
+ });
+ return [...generated,...manual];
+}
+
 function dayEntries(){return daily.days[dailyDate()]||[]}
 function validProfile(){const p=daily.profile;return p.weight>=30&&p.weight<=300&&p.age>=18&&p.age<=100&&p.height>=120&&p.height<=230}
 function dailyRender(){
- const p=daily.profile,entries=dayEntries();
+ const p=daily.profile,entries=entriesForDate(dailyDate());
  if(!validProfile()){$('dailyExplanation').textContent='Revisá peso, edad y estatura.';return}
  const bmr=10*p.weight+6.25*p.height-5*p.age+(p.sex==='male'?5:-161);
  const net=entries.reduce((sum,x)=>sum+(Number(x.net)||0),0),gross=entries.reduce((sum,x)=>sum+(Number(x.gross)||0),0);
@@ -187,30 +253,6 @@ function dailyRender(){
 }
 for(const k of ['weight','age','height','sex','factor']){$('daily'+k[0].toUpperCase()+k.slice(1)).value=daily.profile[k];$('daily'+k[0].toUpperCase()+k.slice(1)).addEventListener('change',e=>{daily.profile[k]=['sex'].includes(k)?e.target.value:Number(e.target.value);dailySave();dailyRender()})}
 $('dailyDate').addEventListener('change',dailyRender);
-$('dailySaveStrength').addEventListener('click',()=>{
- const result=strengthEstimate();if(!result){alert('Completá por lo menos una serie de fuerza (carga, repeticiones y RIR, cuando corresponda) antes de guardar.');return}
- const key=dailyDate(),entries=daily.days[key]||[];const entry={kind:'strength',label:'Fuerza · '+D[state.day]+' · semana '+state.week,minutes:result.minutes,net:result.net,gross:result.gross};const i=entries.findIndex(x=>x.kind==='strength');if(i>=0)entries[i]=entry;else entries.push(entry);daily.days[key]=entries;dailySave();dailyRender();
-});
-function saveCalculatorToDay(){
- const weight=Number(calState.weight);
- if(!(weight>=30&&weight<=300)){alert('Revisá el peso corporal de la calculadora.');return false}
- const items=calState.segments.filter(segment=>Number(segment.duration)>0).map(segment=>{
-  const minutes=Number(segment.duration),met=calMet(segment);
-  return {kind:'manual',source:'calculator',label:({flex:'FlexiSpot',spin:'Spinning',strength:'Fuerza manual',walk:'Caminata'}[segment.activity]||segment.activity),minutes,
-   net:(met-1)*3.5*weight/200*minutes,gross:met*3.5*weight/200*minutes}
- });
- if(!items.length){alert('Agregá por lo menos una actividad con duración válida.');return false}
- const date=dailyDate(),existing=daily.days[date]||[];
- if(items.some(item=>item.label==='Fuerza manual')&&existing.some(item=>item.kind==='strength')){
-  if(!confirm('Ya hay una sesión de fuerza registrada. ¿La fuerza manual corresponde a otra sesión distinta?'))return false
- }
- // Calculator entries are one editable group per day; repeated saves replace this group.
- const preserved=existing.filter(item=>item.source!=='calculator');
- daily.days[date]=[...preserved,...items];
- dailySave();dailyRender();
- $('calSaveStatus').textContent='Guardadas '+items.length+' actividad(es) para '+date+'. Extra total del día: '+$('dailyExtra').textContent+'.';
- return true
-}
 $('dailyAddFromCalc').addEventListener('click',()=>{if(saveCalculatorToDay())$('dailyCalories').scrollIntoView({behavior:'smooth',block:'start'})});
 $('saveCalculatedActivities').addEventListener('click',()=>{if(saveCalculatorToDay())$('dailyCalories').scrollIntoView({behavior:'smooth',block:'start'})});
 $('dailyEntries').addEventListener('click',e=>{const b=e.target.closest('[data-del-daily]');if(!b)return;daily.days[dailyDate()].splice(Number(b.dataset.delDaily),1);dailySave();dailyRender()});
