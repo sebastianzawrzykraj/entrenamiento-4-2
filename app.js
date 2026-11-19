@@ -199,6 +199,7 @@ $('dailyAddFromCalc').addEventListener('click',()=>{
  if(!confirm('¿Agregar '+items.length+' tramo(s) a '+dailyDate()+'? Si ya estaban guardados, se duplicarán.'))return;
  daily.days[dailyDate()]??=[];daily.days[dailyDate()].push(...items);dailySave();dailyRender();
 });
+$('saveCalculatedActivities').addEventListener('click',()=>{$('dailyAddFromCalc').click();$('calSaveStatus').textContent='Revisá el resumen diario de la fecha '+dailyDate()+' para confirmar las actividades guardadas.'});
 $('dailyEntries').addEventListener('click',e=>{const b=e.target.closest('[data-del-daily]');if(!b)return;daily.days[dailyDate()].splice(Number(b.dataset.delDaily),1);dailySave();dailyRender()});
 // Export/import copies include the calendar, while retaining previous app format for compatibility.
 $('export').onclick=()=>download(JSON.stringify({app:'entrenamiento-42',version:2,exported:new Date().toISOString(),state,daily,calState,strengthPrefs},null,2),'entrenamiento-42-respaldo.json','application/json');
